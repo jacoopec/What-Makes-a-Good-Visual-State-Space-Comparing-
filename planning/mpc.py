@@ -1,3 +1,4 @@
+import gc
 import torch
 import hydra
 import copy
@@ -5,7 +6,6 @@ import numpy as np
 from einops import rearrange, repeat
 from utils import slice_trajdict_with_t
 from .base_planner import BasePlanner
-
 
 class MPCPlanner(BasePlanner):
     """
@@ -128,6 +128,8 @@ class MPCPlanner(BasePlanner):
                 obs_0=e_final_obs,
                 state_0=e_final_state,
             )
+            gc.collect()
+            torch.cuda.empty_cache()
             self.iter += 1
             self.sub_planner.logging_prefix = f"plan_{self.iter}"
 

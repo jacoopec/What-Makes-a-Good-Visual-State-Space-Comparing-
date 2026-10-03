@@ -129,16 +129,46 @@ class PlanEvaluator:  # evaluator for planning
 
         # plot trajs
         if self.wm.decoder is not None:
-            i_visuals = self.wm.decode_obs(i_z_obses)[0]["visual"]
+            n_plot = min(
+                self.n_plot_samples,
+                i_z_obses["visual"].shape[0]
+            )
+
+            # Only decode trajectories that will actually be plotted
+            plot_z_obses = {
+                key: value[:n_plot]
+                for key, value in i_z_obses.items()
+            }
+
+            with torch.inference_mode():
+                i_visuals = self.wm.decode_obs(
+                    plot_z_obses
+                )[0]["visual"]
+
+            plot_action_len = action_len[:n_plot]
+
             i_visuals = self._mask_traj(
-                i_visuals, action_len + 1
-            )  # we have action_len + 1 states
-            e_visuals = self.preprocessor.transform_obs_visual(e_visuals)
-            e_visuals = self._mask_traj(e_visuals, action_len * self.frameskip + 1)
+                i_visuals,
+                plot_action_len + 1
+            )
+
+            # Also process only the environment trajectories
+            # that will actually be plotted
+            e_visuals = e_visuals[:n_plot]
+
+            e_visuals = self.preprocessor.transform_obs_visual(
+                e_visuals
+            )
+
+            e_visuals = self._mask_traj(
+                e_visuals,
+                plot_action_len * self.frameskip + 1
+            )
+
             self._plot_rollout_compare(
                 e_visuals=e_visuals,
                 i_visuals=i_visuals,
-                successes=successes,
+                successes=successes[:n_plot],
                 save_video=save_video,
                 filename=filename,
             )
@@ -171,8 +201,22 @@ class PlanEvaluator:  # evaluator for planning
         proprio_dists = np.linalg.norm(e_obs["proprio"] - self.obs_g["proprio"], axis=1)
         mean_proprio_dist = np.mean(proprio_dists)
 
-        e_obs = move_to_device(self.preprocessor.transform_obs(e_obs), self.device)
-        e_z_obs = self.wm.encode_obs(e_obs)
+        with torch.inference_mode():
+
+            e_obs = move_to_device(
+                self.preprocessor.transform_obs(e_obs),
+                self.device
+            )
+
+            e_z_obs = self.wm.encode_obs(e_obs)
+
+            div_visual_emb = torch.norm(
+                e_z_obs["visual"] - i_z_obs["visual"]
+            ).item()
+
+            div_proprio_emb = torch.norm(
+                e_z_obs["proprio"] - i_z_obs["proprio"]
+            ).item()
         div_visual_emb = torch.norm(e_z_obs["visual"] - i_z_obs["visual"]).item()
         div_proprio_emb = torch.norm(e_z_obs["proprio"] - i_z_obs["proprio"]).item()
 
