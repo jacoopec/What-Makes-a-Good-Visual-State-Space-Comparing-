@@ -1,46 +1,29 @@
 import torch
 import torchvision
 import torch.nn as nn
+from models.encoder.base import SpatialEncoder, spatial_pair
 
 
-class resnet18(nn.Module):
+class resnet18(SpatialEncoder):
     def __init__(
         self,
         pretrained: bool = True,
         unit_norm: bool = False,
+        input_size=224,
     ):
-        super().__init__()
+        size = spatial_pair(input_size)
+        super().__init__("resnet18", 512, tuple((s + 31) // 32 for s in size),
+                         size, (0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         resnet = torchvision.models.resnet18(pretrained=pretrained)
-        self.resnet = nn.Sequential(*list(resnet.children())[:-1])
-        self.flatten = nn.Flatten()
+        # Keep the layer4 feature map; discard average pooling and the classifier.
+        self.resnet = nn.Sequential(*list(resnet.children())[:-2])
         self.pretrained = pretrained
-        self.normalize = torchvision.transforms.Normalize(
-            mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        )
         self.unit_norm = unit_norm
 
-        self.latent_ndim = 1
-        self.emb_dim = 512
-        self.name = "resnet"
-
-    def forward(self, x):
-        dims = len(x.shape)
-        orig_shape = x.shape
-        if dims == 3:
-            x = x.unsqueeze(0)
-        elif dims > 4:
-            # flatten all dimensions to batch, then reshape back at the end
-            x = x.reshape(-1, *orig_shape[-3:])
-        x = self.normalize(x)
-        out = self.resnet(x)
-        out = self.flatten(out)
+    def forward_tokens(self, x):
+        out = self.resnet(x).flatten(2).transpose(1, 2)
         if self.unit_norm:
             out = torch.nn.functional.normalize(out, p=2, dim=-1)
-        if dims == 3:
-            out = out.squeeze(0)
-        elif dims > 4:
-            out = out.reshape(*orig_shape[:-3], -1)
-        out = out.unsqueeze(1)
         return out
 
 
