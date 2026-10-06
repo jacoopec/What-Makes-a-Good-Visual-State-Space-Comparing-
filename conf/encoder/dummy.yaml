@@ -1,2 +1,4 @@
-_target_: models.dummy.DummyModel
+_target_: models.encoder.dummy.DummySpatialEncoder
 emb_dim: 7
+input_size: 224
+patch_size: 16

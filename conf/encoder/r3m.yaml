@@ -1,2 +1,3 @@
-_target_: models.encoder.r3m.load_r3m
+_target_: models.encoder.r3m_encoder.R3MEncoder
 modelid: resnet18
+input_size: 224

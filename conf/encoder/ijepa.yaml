@@ -1,0 +1,4 @@
+_target_: models.encoder.ijepa.IJEPAEncoder
+model_name: facebook/ijepa_vith14_1k
+cache_dir: null
+local_files_only: false
